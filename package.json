@@ -1,0 +1,10 @@
+{
+  "name": "savee-scraper",
+  "version": "1.0.0",
+  "description": "node script to back up images from savee.it",
+  "main": "scrape.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "jmegs",
+}
