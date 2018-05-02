@@ -76,7 +76,6 @@ const scrape = async targetURL => {
 
   let content = {}
   let moreLeft = true
-  // console.log(await !!page.$(nextLinkSelector))
 
   do {
     let data = await page.evaluate(() => {
@@ -100,11 +99,8 @@ const scrape = async targetURL => {
       image: data.imageURL
     }
 
-    console.log(`content written for ${data.name.toString()}`)
-
     // check for link
     if ((await page.$(nextLinkSelector)) !== null) {
-      console.log("There is still a next link...")
       // click it
       await page.click(nextLinkSelector).catch(err => console.log(err))
       await page.waitFor(2000)
@@ -115,7 +111,6 @@ const scrape = async targetURL => {
 
   // now we have the content object
   // push to content object
-  // console.log(content)
   browser.close()
   return content
 }
@@ -123,11 +118,13 @@ const scrape = async targetURL => {
 // netscape bookmark process the content object
 // write that html to the disk
 
-scrape("https://savee.it/collections/recreate/").then(async content => {
-  Object.keys(content).map(key => {
-    saveImage(content[key].image)
-  })
-})
+scrape("https://savee.it/collections/dashboard-information/").then(
+  async content => {
+    Object.keys(content).map(key => {
+      saveImage(content[key].image)
+    })
+  }
+)
 
 function escapeHTML(unsafe) {
   return unsafe
