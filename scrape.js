@@ -1,47 +1,113 @@
 // import tools
-// fs, netscape-bookmarks, puppeteer 
+// fs, netscape-bookmarks, puppeteer
+const fs = require("fs")
+const puppeteer = require("puppeteer")
+const netscape = require("netscape-bookmarks")
+const creds = require("./creds")
 
+const usernameSelector = "input[name='username']"
+const passwordSelector = "input[name='password']"
+const loginButtonSelector = ".submit"
 
+const getCookie = async targetURL => {
+  const browser = await puppeteer.launch({ headless: false })
+  const page = await browser.newPage()
 
-// create an empty array for the content
+  await page.goto(targetURL)
+  await page.waitFor(2 * 1000)
 
-/*
-// function: saveItem
-// grabs pertinent information and saves to content array
-// run this on each item page
-*/
+  // Log in using information in ./creds.js
+  await page.click(usernameSelector)
+  await page.keyboard.type(creds.username)
 
-// Create an empty object called item
+  await page.click(passwordSelector)
+  await page.keyboard.type(creds.password)
 
-// Grab the large image on the page document.querySelector(".large")
-// and store it in a variable image
+  await page.click(loginButtonSelector)
 
+  await page.waitFor(3 * 1000)
 
-// Check if there is a link at document.querySelector(".slide-img-container a")
-// If the link != null, store the href as a variable source_url
-
-// push the item object into the global content array
+  // get cookie
+  const cookiesObject = await page.cookies()
+  let json = JSON.stringify(cookiesObject)
+  fs.writeFile("cookies.json", json, "utf-8", err => {
+    if (err) throw err
+    console.log("the file has been saved")
+  })
+  return true
+}
 
 /* end of saveItem */
+const scrape = async targetURL => {
+  // initialize the browser
+  const browser = await puppeteer.launch({ headless: false })
+  const page = await browser.newPage()
 
+  // set login cookie
+  const previousSession = fs.existsSync("./cookies.json")
+  if (previousSession) {
+    // if file exists load the cookies
+    const cookiesArr = require("./cookies.json")
+    if (cookiesArr.length !== 0) {
+      for (let cookie of cookiesArr) {
+        await page.setCookie(cookie)
+      }
+      console.log("Login cookie has been loaded in the browser")
+    }
+  }
 
-/*
-// Do the Scraping
-*/
+  // Open a connection to the specified url
+  await page.goto(targetURL)
+  await page.waitFor(2 * 1000)
 
-// open a connection to the a specified URL savee.it/you || collection URL
+  // click on the first grid item
+  await page.click("div .grid-item")
+  await page.waitFor(2000)
 
+  // click to expand info bar
+  const infoBarSelector = "li.actions li:nth-child(1n) button"
+  const nameSelector = ".bar-info-content .name"
+  await page.click(infoBarSelector)
+  await page.waitForSelector(nameSelector)
 
-// click on the first ".grid-item"
+  // save info and move to next item
+  const nextLinkSelector = "a.arrow.next"
+  const imageSelector = ".large"
+  const linkSelector = ".slide-img-container a"
 
-// Check if a next button still exists 
-// document.querySelector("a.arrow.next") != null
+  // Get the name from the info bar
+  let name = await page.evaluate(selector => {
+    return document.querySelector(selector).innerText
+  }, nameSelector)
 
-// run the saveItem function
+  // Get the image url from the large image tag
+  let imageURL = await page.evaluate(selector => {
+    return document.querySelector(selector).src
+  }, imageSelector)
 
-// when saveItem is finished, click the next button 
-// document.querySelector("a.arrow.next")
+  // If there's a source URL, get the source URL
+  let sourceURL = await page.evaluate(selector => {
+    if (selector) {
+      return document.querySelector(selector).href
+    }
+  }, linkSelector)
 
-// run the content array through netscape-bookmarks
+  console.log({
+    name: name,
+    imageURL: imageURL,
+    sourceURL: sourceURL
+  })
 
-// write the resulting html to a file.
+  // save to an object
+  // push to content object
+
+  // if there's a next link, click the next link
+  // otherwise, return the content object and close the browser
+  // return that value
+}
+
+// netscape bookmark process the content object
+// write that html to the disk
+
+scrape("https://savee.it/collections/recreate/")
+// getCookie("https://savee.it/you")
