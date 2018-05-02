@@ -1,6 +1,9 @@
 # Project Specific
 creds.js
 cookies.json
+downloads
+
+.DS_Store
 
 # Logs
 logs

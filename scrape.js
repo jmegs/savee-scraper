@@ -1,6 +1,7 @@
 // import tools
 // fs, netscape-bookmarks, puppeteer
 const fs = require("fs")
+const download = require("image-downloader")
 const puppeteer = require("puppeteer")
 const netscape = require("netscape-bookmarks")
 const creds = require("./creds")
@@ -94,7 +95,7 @@ const scrape = async targetURL => {
       return info
     })
     // write to content
-    content[data.name.toString()] = {
+    content[escapeHTML(data.name.toString())] = {
       url: data.sourceURL,
       image: data.imageURL
     }
@@ -115,14 +116,59 @@ const scrape = async targetURL => {
   // now we have the content object
   // push to content object
   // console.log(content)
+  browser.close()
   return content
 }
 
 // netscape bookmark process the content object
 // write that html to the disk
 
-scrape("https://savee.it/collections/recreate/").then(content => {
-  const json = JSON.stringify(content)
-  const html = netscape(content)
-  console.log(html)
+scrape("https://savee.it/collections/recreate/").then(async content => {
+  Object.keys(content).map(key => {
+    saveImage(content[key].image)
+  })
 })
+
+function escapeHTML(unsafe) {
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;")
+}
+
+function slugify(string) {
+  return string.replace(/^\/|\/$/g, "").replace(/\//g, "-")
+}
+
+function generateHTML(items) {
+  // template header
+  let headerHTML = `<!DOCTYPE NETSCAPE-Bookmark-file-1> <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8"> <TITLE>Bookmarks</TITLE><H1>Bookmarks</H1><DL><p>`
+
+  let itemsHTML = []
+  for (const key in items) {
+    let htmlString = `<DT><A ${
+      items[key].url ? `HREF=${items[key].url}` : ``
+    } IMAGE="${items[key].image}">${key}</A>`
+    itemsHTML.push(htmlString)
+  }
+
+  let footerHTML = `</DL></p>`
+
+  const finalHTML = `${headerHTML}${itemsHTML.map(i => i)}${footerHTML}`
+  return finalHTML
+}
+
+async function saveImage(url) {
+  const dest = "./downloads"
+  try {
+    const { filename, image } = await download.image({
+      url: url,
+      dest: dest
+    })
+    console.log(filename)
+  } catch (e) {
+    throw e
+  }
+}

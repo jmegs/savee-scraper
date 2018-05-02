@@ -8,7 +8,8 @@
   },
   "author": "jmegs",
   "dependencies": {
-    "netscape-bookmarks": "^0.1.0",
+    "image-downloader": "^3.3.0",
+    "netscape-bookmarks": "github:jmegs/node-netscape-bookmarks",
     "puppeteer": "^1.3.0"
   }
 }
