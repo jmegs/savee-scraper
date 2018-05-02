@@ -74,9 +74,12 @@ const scrape = async targetURL => {
   const linkSelector = ".slide-img-container a"
 
   let content = {}
+  let moreLeft = true
+  // console.log(await !!page.$(nextLinkSelector))
 
-  if (page.$(nextLinkSelector)) {
+  do {
     let data = await page.evaluate(() => {
+      // Saves Stuff
       const imageSelector = ".large"
       const linkSelector = ".slide-img-container a"
       const nameSelector = ".bar-info-content .name"
@@ -84,31 +87,42 @@ const scrape = async targetURL => {
       let name = document.querySelector(nameSelector).innerText
       let imageURL = document.querySelector(imageSelector).src
       let sourceURL
-      if (linkSelector) {
+      if (document.querySelector(linkSelector) != null) {
         sourceURL = document.querySelector(linkSelector).href
       }
       let info = { name: name, imageURL: imageURL, sourceURL: sourceURL }
       return info
     })
-
+    // write to content
     content[data.name.toString()] = {
       url: data.sourceURL,
       image: data.imageURL
     }
-  }
 
-  console.log(content)
+    console.log(`content written for ${data.name.toString()}`)
 
-  // save to an object
+    // check for link
+    if ((await page.$(nextLinkSelector)) !== null) {
+      console.log("There is still a next link...")
+      // click it
+      await page.click(nextLinkSelector).catch(err => console.log(err))
+      await page.waitFor(2000)
+    } else {
+      moreLeft = false
+    }
+  } while (moreLeft)
+
+  // now we have the content object
   // push to content object
-
-  // if there's a next link, click the next link
-  // otherwise, return the content object and close the browser
-  // return that value
+  // console.log(content)
+  return content
 }
 
 // netscape bookmark process the content object
 // write that html to the disk
 
-scrape("https://savee.it/collections/recreate/")
-// getCookie("https://savee.it/you")
+scrape("https://savee.it/collections/recreate/").then(content => {
+  const json = JSON.stringify(content)
+  const html = netscape(content)
+  console.log(html)
+})
