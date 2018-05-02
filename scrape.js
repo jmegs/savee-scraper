@@ -37,7 +37,6 @@ const getCookie = async targetURL => {
   return true
 }
 
-/* end of saveItem */
 const scrape = async targetURL => {
   // initialize the browser
   const browser = await puppeteer.launch({ headless: false })
@@ -66,37 +65,39 @@ const scrape = async targetURL => {
 
   // click to expand info bar
   const infoBarSelector = "li.actions li:nth-child(1n) button"
-  const nameSelector = ".bar-info-content .name"
   await page.click(infoBarSelector)
-  await page.waitForSelector(nameSelector)
+  await page.waitFor(1000)
 
   // save info and move to next item
   const nextLinkSelector = "a.arrow.next"
   const imageSelector = ".large"
   const linkSelector = ".slide-img-container a"
 
-  // Get the name from the info bar
-  let name = await page.evaluate(selector => {
-    return document.querySelector(selector).innerText
-  }, nameSelector)
+  let content = {}
 
-  // Get the image url from the large image tag
-  let imageURL = await page.evaluate(selector => {
-    return document.querySelector(selector).src
-  }, imageSelector)
+  if (page.$(nextLinkSelector)) {
+    let data = await page.evaluate(() => {
+      const imageSelector = ".large"
+      const linkSelector = ".slide-img-container a"
+      const nameSelector = ".bar-info-content .name"
 
-  // If there's a source URL, get the source URL
-  let sourceURL = await page.evaluate(selector => {
-    if (selector) {
-      return document.querySelector(selector).href
+      let name = document.querySelector(nameSelector).innerText
+      let imageURL = document.querySelector(imageSelector).src
+      let sourceURL
+      if (linkSelector) {
+        sourceURL = document.querySelector(linkSelector).href
+      }
+      let info = { name: name, imageURL: imageURL, sourceURL: sourceURL }
+      return info
+    })
+
+    content[data.name.toString()] = {
+      url: data.sourceURL,
+      image: data.imageURL
     }
-  }, linkSelector)
+  }
 
-  console.log({
-    name: name,
-    imageURL: imageURL,
-    sourceURL: sourceURL
-  })
+  console.log(content)
 
   // save to an object
   // push to content object
