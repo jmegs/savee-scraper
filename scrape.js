@@ -87,7 +87,7 @@ const scrape = async targetURL => {
       let name = document.querySelector(nameSelector).innerText
       let imageURL = document.querySelector(imageSelector).src
       let sourceURL
-      if (document.querySelector(linkSelector) != null) {
+      if (document.querySelector(linkSelector) !== null) {
         sourceURL = document.querySelector(linkSelector).href
       }
       let info = { name: name, imageURL: imageURL, sourceURL: sourceURL }
@@ -117,7 +117,7 @@ const scrape = async targetURL => {
 
 // netscape bookmark process the content object
 // write that html to the disk
-
+// getCookie("https://savee.it/you")
 scrape("https://savee.it/collections/dashboard-information/").then(
   async content => {
     Object.keys(content).map(key => {
