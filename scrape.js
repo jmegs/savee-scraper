@@ -10,11 +10,11 @@ const usernameSelector = "input[name='username']"
 const passwordSelector = "input[name='password']"
 const loginButtonSelector = ".submit"
 
-const getCookie = async targetURL => {
-  const browser = await puppeteer.launch({ headless: false })
-  const page = await browser.newPage()
+const getCookie = async () => {
+  // const browser = await puppeteer.launch({ headless: false })
+  // const page = await browser.newPage()
 
-  await page.goto(targetURL)
+  await page.goto("https://savee.it/you")
   await page.waitFor(2 * 1000)
 
   // Log in using information in ./creds.js
@@ -45,15 +45,17 @@ const scrape = async targetURL => {
 
   // set login cookie
   const previousSession = fs.existsSync("./cookies.json")
-  if (previousSession) {
-    // if file exists load the cookies
-    const cookiesArr = require("./cookies.json")
-    if (cookiesArr.length !== 0) {
-      for (let cookie of cookiesArr) {
-        await page.setCookie(cookie)
-      }
-      console.log("Login cookie has been loaded in the browser")
+
+  if (!previousSession) {
+    getCookie()
+  }
+
+  const cookiesArr = require("./cookies.json")
+  if (cookiesArr.length !== 0) {
+    for (let cookie of cookiesArr) {
+      await page.setCookie(cookie)
     }
+    console.log("Login cookie has been loaded in the browser")
   }
 
   // Open a connection to the specified url
