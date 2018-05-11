@@ -10,14 +10,14 @@ const usernameSelector = "input[name='username']"
 const passwordSelector = "input[name='password']"
 const loginButtonSelector = ".submit"
 
+// Logs into savee and writes the cookie to cookies.json
 const getCookie = async () => {
-  // const browser = await puppeteer.launch({ headless: false })
-  // const page = await browser.newPage()
-
   await page.goto("https://savee.it/you")
   await page.waitFor(2 * 1000)
 
   // Log in using information in ./creds.js
+  // username: SAVEE USERNAME
+  // password: PASSWORD
   await page.click(usernameSelector)
   await page.keyboard.type(creds.username)
 
@@ -38,6 +38,7 @@ const getCookie = async () => {
   return true
 }
 
+// Returns an array of bookmark item objects
 const scrape = async targetURL => {
   // initialize the browser
   const browser = await puppeteer.launch({ headless: false })
@@ -60,7 +61,7 @@ const scrape = async targetURL => {
 
   // Open a connection to the specified url
   await page.goto(targetURL)
-  await page.waitFor(2 * 1000)
+  await page.waitFor(2000)
 
   // click on the first grid item
   await page.click("div .grid-item")
@@ -69,37 +70,34 @@ const scrape = async targetURL => {
   // click to expand info bar
   const infoBarSelector = "li.actions li:nth-child(1n) button"
   await page.click(infoBarSelector)
-  await page.waitFor(1000)
+  await page.waitFor(2000)
 
   // save info and move to next item
   const nextLinkSelector = "a.arrow.next"
   const imageSelector = ".large"
   const linkSelector = ".slide-img-container a"
 
-  let content = {}
+  let content = []
   let moreLeft = true
 
   do {
-    let data = await page.evaluate(() => {
+    let item = await page.evaluate(() => {
       // Saves Stuff
       const imageSelector = ".large"
       const linkSelector = ".slide-img-container a"
       const nameSelector = ".bar-info-content .name"
 
-      let name = document.querySelector(nameSelector).innerText
+      let name = escapeHTML(document.querySelector(nameSelector).innerText)
       let imageURL = document.querySelector(imageSelector).src
       let sourceURL
       if (document.querySelector(linkSelector) !== null) {
         sourceURL = document.querySelector(linkSelector).href
       }
-      let info = { name: name, imageURL: imageURL, sourceURL: sourceURL }
-      return info
+      let result = { name: name, imageURL: imageURL, sourceURL: sourceURL }
+      return result
     })
     // write to content
-    content[escapeHTML(data.name.toString())] = {
-      url: data.sourceURL,
-      image: data.imageURL
-    }
+    content.push(item)
 
     // check for link
     if ((await page.$(nextLinkSelector)) !== null) {
@@ -107,12 +105,12 @@ const scrape = async targetURL => {
       await page.click(nextLinkSelector).catch(err => console.log(err))
       await page.waitFor(2000)
     } else {
+      // say we're done
       moreLeft = false
     }
   } while (moreLeft)
 
-  // now we have the content object
-  // push to content object
+  // now we return the content array
   browser.close()
   return content
 }
@@ -120,14 +118,12 @@ const scrape = async targetURL => {
 // netscape bookmark process the content object
 // write that html to the disk
 // getCookie("https://savee.it/you")
-scrape("https://savee.it/collections/dashboard-information/").then(
-  async content => {
-    Object.keys(content).map(key => {
-      saveImage(content[key].image)
-    })
-  }
-)
+scrape("https://savee.it/collections/dashboard-information/")
+  .then
+  // do the thing
+  ()
 
+// returns html-escaped string
 function escapeHTML(unsafe) {
   return unsafe
     .replace(/&/g, "&amp;")
@@ -137,6 +133,7 @@ function escapeHTML(unsafe) {
     .replace(/'/g, "&#039;")
 }
 
+// returns slugified string
 function slugify(string) {
   return string.replace(/^\/|\/$/g, "").replace(/\//g, "-")
 }
