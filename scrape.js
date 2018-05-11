@@ -3,6 +3,7 @@
 const fs = require("fs")
 // const download = require("image-downloader")
 const puppeteer = require("puppeteer")
+const spinner = require("ora")
 const creds = require("./creds")
 
 const usernameSelector = "input[name='username']"
@@ -13,7 +14,7 @@ const args = process.argv.slice(2)
 const targetURL = args[0]
 
 // Logs into savee and writes the cookie to cookies.json
-const getCookie = async () => {
+async function getCookie() {
   await page.goto("https://savee.it/you")
   await page.waitFor(2 * 1000)
 
@@ -41,7 +42,8 @@ const getCookie = async () => {
 }
 
 // Returns an array of bookmark item objects
-const scrape = async targetURL => {
+
+async function scrape(targetURL) {
   // initialize the browser
   const browser = await puppeteer.launch()
   const page = await browser.newPage()
@@ -117,18 +119,13 @@ const scrape = async targetURL => {
   return content
 }
 
-// netscape bookmark process the content object
-// write that html to the disk
-// getCookie("https://savee.it/you")
-scrape(targetURL).then(result => console.log(result))
-
 function generateHTML(items) {
   // template header
-  let headerHTML = `<!DOCTYPE NETSCAPE-Bookmark-file-1> <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8"> <TITLE>Savee</TITLE><H1>Savee</H1><DL><p>`
+  let headerHTML = `<!DOCTYPE NETSCAPE-Bookmark-file-1><META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8"><TITLE>Savee</TITLE><H1>Savee</H1><DL><p>`
 
   let itemsHTML = []
   items.map(item => {
-    let htmlString = `<DT><A ${
+    let htmlString = `<DT><A${
       item.sourceURL ? `REFERRER=${item.sourceURL}` : ``
     } HREF="${item.imageURL}">${item.name}</A>`
     itemsHTML.push(htmlString)
@@ -161,3 +158,10 @@ function escapeHTML(string) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;")
 }
+
+// netscape bookmark process the content object
+// write that html to the disk
+// getCookie("https://savee.it/you")
+scrape(targetURL).then(result => {
+  console.log(generateHTML(result))
+})

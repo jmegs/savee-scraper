@@ -10,6 +10,7 @@
   "dependencies": {
     "image-downloader": "^3.3.0",
     "netscape-bookmarks": "github:jmegs/node-netscape-bookmarks",
+    "ora": "^2.1.0",
     "puppeteer": "^1.3.0"
   }
 }
