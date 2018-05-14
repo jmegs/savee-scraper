@@ -4,6 +4,8 @@ const fs = require("fs")
 // const download = require("image-downloader")
 const puppeteer = require("puppeteer")
 const ora = require("ora")
+const slugify = require("slugify")
+const formatTime = require("date-fns/format")
 const creds = require("./creds")
 
 const usernameSelector = "input[name='username']"
@@ -44,7 +46,7 @@ function generateHTML(items, title) {
 
   let itemsHTML = []
   items.map(item => {
-    let htmlString = `<DT><A ${
+    let htmlString = `<DT><A ADD_DATE="${item.dateAdded}" ${
       item.sourceURL ? `REFERRER=${item.sourceURL}` : ``
     } HREF="${item.imageURL}">${escapeHTML(item.name)}</A></DT>`
     itemsHTML.push(htmlString)
@@ -69,7 +71,7 @@ async function saveImage(url) {
   }
 }
 
-function escapeHTML(string) {
+const escapeHTML = string => {
   return string
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -79,9 +81,10 @@ function escapeHTML(string) {
 }
 
 // Returns an array of bookmark item objects
-async function scrape(targetURL) {
+const scrape = async targetURL => {
   // start the spinner
   const spinner = ora("Booting up").start()
+
   // initialize the browser
   const browser = await puppeteer.launch()
   const page = await browser.newPage()
@@ -125,7 +128,6 @@ async function scrape(targetURL) {
   const linkSelector = ".slide-img-container a"
 
   let content = []
-  let count = 0
   let moreLeft = true
 
   do {
@@ -136,20 +138,40 @@ async function scrape(targetURL) {
       const imageSelector = ".large"
       const linkSelector = ".slide-img-container a"
       const nameSelector = ".bar-info-content .name"
+      const dateSelector = ".date"
 
       let name = document.querySelector(nameSelector).innerText
       let imageURL = document.querySelector(imageSelector).src
+      let dateAdded = document.querySelector(dateSelector).innerText
       let sourceURL
       if (document.querySelector(linkSelector) !== null) {
         sourceURL = document.querySelector(linkSelector).href
       }
-      let result = { name: name, imageURL: imageURL, sourceURL: sourceURL }
+      let result = {
+        name: name,
+        imageURL: imageURL,
+        sourceURL: sourceURL,
+        dateAdded: dateAdded
+      }
       return result
     })
     // write to content
+    // clean up entries
+
+    item.name = slugify(item.name)
+
+    // Add this year if there's no year
+    let theDate = item.dateAdded
+    if (!theDate.includes(",")) {
+      newDate = `${theDate}, 2018`
+      item.dateAdded = newDate
+    }
+
+    // change date string to unix timestamp
+    let timeStamp = formatTime(item.dateAdded, "x")
+    item.dateAdded = timeStamp
     content.push(item)
-    count++
-    spinner.text = `${count} saved`
+    spinner.text = `Saved ${content.length}`
 
     // check for link
     if ((await page.$(nextLinkSelector)) !== null) {
@@ -162,7 +184,8 @@ async function scrape(targetURL) {
   } while (moreLeft)
 
   // now we return the content array
-  spinner.succeed("Got them all")
+  let count = content.length
+  spinner.succeed(`${count} saved \n`)
   browser.close()
   return content
 }
