@@ -1,84 +1,11 @@
 // import tools
-// fs, netscape-bookmarks, puppeteer
 const fs = require("fs")
-// const download = require("image-downloader")
 const puppeteer = require("puppeteer")
 const ora = require("ora")
-const slugify = require("slugify")
 const formatTime = require("date-fns/format")
-const creds = require("./creds")
-
-const usernameSelector = "input[name='username']"
-const passwordSelector = "input[name='password']"
-const loginButtonSelector = ".submit"
-
-// Logs into savee and writes the cookie to cookies.json
-async function getCookie() {
-  await page.goto("https://savee.it/you")
-  await page.waitFor(2 * 1000)
-
-  // Log in using information in ./creds.js
-  // username: SAVEE USERNAME
-  // password: PASSWORD
-  await page.click(usernameSelector)
-  await page.keyboard.type(creds.username)
-
-  await page.click(passwordSelector)
-  await page.keyboard.type(creds.password)
-
-  await page.click(loginButtonSelector)
-
-  await page.waitFor(3 * 1000)
-
-  // get cookie
-  const cookiesObject = await page.cookies()
-  let json = JSON.stringify(cookiesObject)
-  fs.writeFile("cookies.json", json, "utf-8", err => {
-    if (err) throw err
-    console.log("the file has been saved")
-  })
-  return true
-}
-
-function generateHTML(items, title) {
-  // template header
-  let headerHTML = `<!DOCTYPE NETSCAPE-Bookmark-file-1><META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8"><TITLE>${title}</TITLE><H1>${title}</H1><DL>`
-
-  let itemsHTML = []
-  items.map(item => {
-    let htmlString = `<DT><A ADD_DATE="${item.dateAdded}" ${
-      item.sourceURL ? `REFERRER=${item.sourceURL}` : ``
-    } HREF="${item.imageURL}">${escapeHTML(item.name)}</A></DT>`
-    itemsHTML.push(htmlString)
-  })
-
-  let footerHTML = `</DL>`
-
-  const finalHTML = `${headerHTML}${itemsHTML.map(i => i)}${footerHTML}`
-  return finalHTML
-}
-
-async function saveImage(url) {
-  const dest = "./downloads"
-  try {
-    const { filename, image } = await download.image({
-      url: url,
-      dest: dest
-    })
-    console.log(filename)
-  } catch (e) {
-    throw e
-  }
-}
-
-const escapeHTML = string => {
-  return string
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;")
-}
+const getCookie = require("./helpers/getCookie")
+const saveItem = require("./helpers/saveItem")
+const scrolltoBottom = require("./helpers/scrollToBottom")
 
 // Returns an array of bookmark item objects
 const scrape = async targetURL => {
@@ -86,7 +13,7 @@ const scrape = async targetURL => {
   const spinner = ora("Booting up").start()
 
   // initialize the browser
-  const browser = await puppeteer.launch()
+  const browser = await puppeteer.launch({ headless: false })
   const page = await browser.newPage()
 
   // set login cookie
@@ -103,7 +30,7 @@ const scrape = async targetURL => {
       await page.setCookie(cookie)
     }
     // console.log("Login cookie has been loaded in the browser")
-    spinner.text = "Login Cookie Loaded"
+    spinner.text = "🍪 Login Cookie Loaded"
   }
 
   // Open a connection to the specified url
@@ -111,94 +38,51 @@ const scrape = async targetURL => {
   await page.goto(targetURL)
   await page.waitFor(2000)
 
+  spinner.text = "Scrolling to bottom…"
+  await scrolltoBottom(page)
+
   // click on the first grid item
-  spinner.text = "Click"
+  spinner.text = "Clicking the first grid item…"
   await page.click("div .grid-item")
   await page.waitForSelector(".fullscreenable")
 
   // click to expand info bar
-  spinner.text = "Open info bar"
+  spinner.text = "Opening info bar…"
   const infoBarSelector = "li.actions li:nth-child(1n) button"
   await page.click(infoBarSelector)
-  // await page.waitForSelector(".bar-info")
 
-  // save info and move to next item
-  const nextLinkSelector = "a.arrow.next"
-  const imageSelector = ".large"
-  const linkSelector = ".slide-img-container a"
-
+  // Save content
   let content = []
   let moreLeft = true
 
+  // while moreLeft is true
   do {
-    // wait till the large image has loaded
-    await page.waitForSelector(imageSelector)
-    let item = await page.evaluate(() => {
-      // Saves Stuff
-      const imageSelector = ".large"
-      const linkSelector = ".slide-img-container a"
-      const nameSelector = ".bar-info-content .name"
-      const dateSelector = ".date"
-
-      let name = document.querySelector(nameSelector).innerText
-      let imageURL = document.querySelector(imageSelector).src
-      let dateAdded = document.querySelector(dateSelector).innerText
-      let sourceURL
-      if (document.querySelector(linkSelector) !== null) {
-        sourceURL = document.querySelector(linkSelector).href
+    // only considerer un-tagged items
+    if ((await page.$(".tag")) === null) {
+      try {
+        let item = await saveItem(page)
+        content.push(item)
+        spinner.text = `Saved ${content.length}
+        ${item.name}
+        `
+      } catch (error) {
+        console.error(error)
       }
-      let result = {
-        name: name,
-        imageURL: imageURL,
-        sourceURL: sourceURL,
-        dateAdded: dateAdded
-      }
-      return result
-    })
-    // write to content
-    // clean up entries
-
-    item.name = slugify(item.name)
-
-    // Add this year if there's no year
-    let theDate = item.dateAdded
-    if (!theDate.includes(",")) {
-      newDate = `${theDate}, 2018`
-      item.dateAdded = newDate
     }
 
-    // change date string to unix timestamp
-    let timeStamp = formatTime(item.dateAdded, "x")
-    item.dateAdded = timeStamp
-    content.push(item)
-    spinner.text = `Saved ${content.length}`
-
-    // check for link
-    if ((await page.$(nextLinkSelector)) !== null) {
-      // click it
-      await page.click(nextLinkSelector).catch(err => console.log(err))
-    } else {
-      // say we're done
+    let prevURL = await page.url()
+    await page.keyboard.press("ArrowRight")
+    try {
+      await page.waitForNavigation({ timeout: 1000 })
+    } catch (e) {
       moreLeft = false
     }
   } while (moreLeft)
 
   // now we return the content array
-  let count = content.length
-  spinner.succeed(`${count} saved \n`)
+  spinner.succeed(`${content.length} saved \n`)
   browser.close()
   return content
 }
 
-// Target URL is the first command line argument
-const args = process.argv.slice(2)
-const targetURL = args[0]
-const collectionTitle = args[1]
-
-scrape(targetURL).then(items => {
-  const html = generateHTML(items, collectionTitle)
-  fs.writeFileSync(`./output/${collectionTitle}.html`, html, "utf-8", err => {
-    if (err) throw err
-    console.log("the file has been saved")
-  })
-})
+module.exports = scrape
